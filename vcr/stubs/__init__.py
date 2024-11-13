@@ -176,7 +176,10 @@ class VCRHTTPResponse(HTTPResponse):
             yield b
             if not b:
                 break
-
+# fix for https://github.com/kevin1024/vcrpy/issues/849
+# create the lock
+from threading import Lock
+mutex_lock = Lock()
 
 class VCRConnection:
     # A reference to the cassette that's currently being patched in
@@ -273,13 +276,14 @@ class VCRConnection:
             # TODO(@IvanMalison): Refactor to allow normal import.
             from vcr.patch import force_reset
 
-            with force_reset():
-                self.real_connection.request(
-                    method=self._vcr_request.method,
-                    url=self._url(self._vcr_request.uri),
-                    body=self._vcr_request.body,
-                    headers=self._vcr_request.headers,
-                )
+            with mutex_lock:
+                with force_reset():
+                    self.real_connection.request(
+                        method=self._vcr_request.method,
+                        url=self._url(self._vcr_request.uri),
+                        body=self._vcr_request.body,
+                        headers=self._vcr_request.headers,
+                    )
 
             # get the response
             response = self.real_connection.getresponse()
